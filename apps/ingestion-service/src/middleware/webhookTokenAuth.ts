@@ -2,10 +2,17 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { WebhookEndpointLookupRepository } from "../repositories/webhookEndpoint.repository";
 
-function verifyWebhookSignature(rawBody: Buffer, signature: string, secret: string): boolean {
+function verifyWebhookSignature(
+  rawBody: Buffer,
+  signature: string,
+  secret: string,
+): boolean {
   const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  const expectedBuf = Buffer.from(`sha256=${expected}`);
-  const signatureBuf = Buffer.from(signature);
+  // Normalise: strip a leading "sha256=" prefix if the sender includes it (e.g. GitHub),
+  // then compare the plain hex digests. Lemon Squeezy sends the raw hex with no prefix.
+  const normalised = signature.startsWith("sha256=") ? signature.slice(7) : signature;
+  const expectedBuf = Buffer.from(expected);
+  const signatureBuf = Buffer.from(normalised);
   if (expectedBuf.length !== signatureBuf.length) return false;
   return timingSafeEqual(expectedBuf, signatureBuf);
 }
@@ -13,7 +20,11 @@ function verifyWebhookSignature(rawBody: Buffer, signature: string, secret: stri
 export function createWebhookTokenAuthMiddleware(
   repo: WebhookEndpointLookupRepository,
 ): RequestHandler {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     const { token } = req.params;
 
     if (!token) {

@@ -29,7 +29,11 @@ async function bootstrap(): Promise<void> {
   // ── App ───────────────────────────────────────────────────────────────────────
   const app = express();
 
-  app.use(express.json());
+  // Skip JSON parsing for the token-based webhook route — it needs the raw body for HMAC.
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/ingest/webhook/")) return next();
+    express.json()(req, res, next);
+  });
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", service: "ingestion-service", timestamp: new Date().toISOString() });

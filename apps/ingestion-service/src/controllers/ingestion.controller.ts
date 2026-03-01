@@ -261,6 +261,27 @@ export class IngestionController {
     const endpointName = req.auth.webhookEndpoint?.name ?? "webhook";
     const source = endpointName.toLowerCase().replace(/\s+/g, "-");
 
+    // Extract correlation context from common webhook payload shapes.
+    // Lemon Squeezy: meta.custom_data.{user_id, plan_code, tenant_id}, data.attributes.{customer_id, order_number}
+    const meta = typeof parsed.meta === "object" && parsed.meta !== null
+      ? (parsed.meta as Record<string, unknown>)
+      : {};
+    const customData = typeof meta.custom_data === "object" && meta.custom_data !== null
+      ? (meta.custom_data as Record<string, unknown>)
+      : {};
+    const dataAttrs = typeof parsed.data === "object" && parsed.data !== null
+      ? ((parsed.data as Record<string, unknown>).attributes as Record<string, unknown> | undefined ?? {})
+      : {};
+
+    const correlation: CorrelationContext = {
+      payment_provider: source,
+      ...(typeof customData.user_id === "string" ? { user_id: customData.user_id } : {}),
+      ...(typeof customData.tenant_id === "string" ? { customer_id: customData.tenant_id } : {}),
+      ...(typeof dataAttrs.customer_id === "number" ? { customer_id: String(dataAttrs.customer_id) } : {}),
+      ...(typeof dataAttrs.order_number === "number" ? { order_id: String(dataAttrs.order_number) } : {}),
+      ...(typeof customData.plan_code === "string" ? { plan: customData.plan_code } : {}),
+    };
+
     const result = await this.service.ingest({
       organizationId: req.auth.organization.id,
       projectId: req.auth.project.id,
@@ -268,7 +289,7 @@ export class IngestionController {
       type: EventType.WEBHOOK,
       severity: EventSeverity.INFO,
       payload: parsed,
-      correlation: { payment_provider: source },
+      correlation,
     });
 
     logger.info(
