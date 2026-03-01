@@ -1,26 +1,35 @@
 services:
   postgres:
     image: postgres:16
+    container_name: risk-postgres
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: incident_intel
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    networks:
+      - risk-network
 
   redis:
     image: redis:7
+    container_name: risk-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
+    networks:
+      - risk-network
 
 volumes:
   postgres-data:
   redis-data:
 
+networks:
+  risk-network:
+    driver: bridge
