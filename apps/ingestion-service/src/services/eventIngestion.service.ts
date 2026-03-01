@@ -1,9 +1,10 @@
-import type { EventSeverity } from "@risk-engine/types";
+import type { CorrelationContext, EventSeverity } from "@risk-engine/types";
 import { getRedisClient } from "@risk-engine/redis";
 import { emitEventIngested } from "@risk-engine/events";
 import type { RedisStreamClient } from "@risk-engine/events";
 import { enqueueAnomalyJob } from "../queues/anomalyQueue";
 import type { EventIngestionRepository } from "../repositories/event.repository";
+import { computeCorrelationFingerprint } from "../utils/fingerprint";
 
 export interface IngestEventInput {
   organizationId: string;
@@ -13,6 +14,7 @@ export interface IngestEventInput {
   severity: EventSeverity;
   payload?: Record<string, unknown>;
   correlationId?: string;
+  correlation?: CorrelationContext;
   occurredAt?: Date;
 }
 
@@ -23,7 +25,8 @@ export interface IngestEventResult {
   source: string;
   type: string;
   severity: string;
-  correlationId: string | null;
+  correlationId: string;
+  correlation: CorrelationContext;
   occurredAt: string;
 }
 
@@ -36,6 +39,15 @@ export class EventIngestionService {
 
   async ingest(input: IngestEventInput): Promise<IngestEventResult> {
     const now = input.occurredAt ?? new Date();
+    const resolvedCorrelation = input.correlation ?? {};
+    const resolvedCorrelationId =
+      input.correlationId ??
+      computeCorrelationFingerprint(
+        input.projectId,
+        input.type,
+        input.source,
+        resolvedCorrelation,
+      );
 
     const event = await this.eventRepo.insert({
       organizationId: input.organizationId,
@@ -44,7 +56,8 @@ export class EventIngestionService {
       type: input.type,
       severity: input.severity as "INFO" | "WARN" | "ERROR" | "CRITICAL",
       payload: (input.payload ?? {}) as Record<string, unknown>,
-      correlationId: input.correlationId ?? null,
+      correlationId: resolvedCorrelationId,
+      correlation: resolvedCorrelation,
       occurredAt: now,
     });
 
@@ -67,6 +80,7 @@ export class EventIngestionService {
       projectId: input.projectId,
       eventId: event.id,
       severity: input.severity,
+      correlationId: resolvedCorrelationId,
       timestamp: occurredAtMs,
     });
 
@@ -77,7 +91,8 @@ export class EventIngestionService {
       source: event.source,
       type: event.type,
       severity: event.severity,
-      correlationId: event.correlationId,
+      correlationId: resolvedCorrelationId,
+      correlation: resolvedCorrelation,
       occurredAt: event.occurredAt.toISOString(),
     };
   }

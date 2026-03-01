@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { createLogger } from "@risk-engine/logger";
 import { EventSeverity, EventType } from "@risk-engine/types";
+import type { CorrelationContext } from "@risk-engine/types";
 import { BadRequestError, UnauthorizedError } from "@risk-engine/http";
 import type { EventIngestionService } from "../services/eventIngestion.service";
 
@@ -57,6 +58,7 @@ export class IngestionController {
       severity,
       payload,
       correlation_id,
+      correlation,
       occurred_at,
     } = req.body as {
       type: string;
@@ -64,6 +66,7 @@ export class IngestionController {
       severity: string;
       payload?: Record<string, unknown>;
       correlation_id?: string;
+      correlation?: CorrelationContext;
       occurred_at?: string;
     };
 
@@ -81,6 +84,7 @@ export class IngestionController {
       severity: severity as EventSeverity,
       payload,
       correlationId: correlation_id,
+      correlation,
       occurredAt: occurred_at ? new Date(occurred_at) : undefined,
     });
 
@@ -100,6 +104,7 @@ export class IngestionController {
       error_message,
       stack,
       correlation_id,
+      correlation,
     } = req.body as {
       status_code: number;
       path: string;
@@ -107,6 +112,7 @@ export class IngestionController {
       error_message: string;
       stack?: string;
       correlation_id?: string;
+      correlation?: CorrelationContext;
     };
 
     if (status_code < 500) {
@@ -125,6 +131,7 @@ export class IngestionController {
       severity,
       payload: eventPayload,
       correlationId: correlation_id,
+      correlation,
     });
 
     logger.info(
@@ -152,12 +159,14 @@ export class IngestionController {
       severity,
       payload,
       correlation_id,
+      correlation,
     } = req.body as {
       type: string;
       source: string;
       severity?: string;
       payload?: Record<string, unknown>;
       correlation_id?: string;
+      correlation?: CorrelationContext;
     };
 
     const resolvedSeverity = (
@@ -174,6 +183,7 @@ export class IngestionController {
       severity: resolvedSeverity,
       payload,
       correlationId: correlation_id,
+      correlation,
     });
 
     logger.info(
@@ -215,6 +225,13 @@ export class IngestionController {
           ? stripeObject["id"]
           : stripeEvent.id;
 
+    const stripeCorrelation: CorrelationContext = {
+      payment_provider: "stripe",
+      ...(typeof stripeObject["customer"] === "string"
+        ? { customer_id: stripeObject["customer"] }
+        : {}),
+    };
+
     const result = await this.service.ingest({
       organizationId: req.auth.organization.id,
       projectId: req.auth.project.id,
@@ -227,6 +244,7 @@ export class IngestionController {
         ...stripeObject,
       },
       correlationId: typeof correlationId === "string" ? correlationId : undefined,
+      correlation: stripeCorrelation,
     });
 
     logger.info(

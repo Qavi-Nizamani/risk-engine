@@ -8,6 +8,7 @@ export interface AnomalyJobPayload {
   projectId: string;
   eventId: string;
   severity: EventSeverity;
+  correlationId: string;
   timestamp: number;
 }
 

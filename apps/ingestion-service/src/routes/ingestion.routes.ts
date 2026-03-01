@@ -5,12 +5,24 @@ import type { RequestHandler } from "express";
 import { EventSeverity, EventType } from "@risk-engine/types";
 import type { IngestionController } from "../controllers/ingestion.controller";
 
+const correlationSchema = z
+  .object({
+    user_id: z.string().optional(),
+    customer_id: z.string().optional(),
+    order_id: z.string().optional(),
+    payment_provider: z.string().optional(),
+    plan: z.string().optional(),
+    deployment_id: z.string().optional(),
+  })
+  .optional();
+
 const manualEventSchema = z.object({
   type: z.enum(Object.values(EventType) as [string, ...string[]]),
   source: z.string().min(1),
   severity: z.enum(Object.values(EventSeverity) as [string, ...string[]]),
   payload: z.record(z.unknown()).optional(),
   correlation_id: z.string().optional(),
+  correlation: correlationSchema,
   occurred_at: z.string().optional(),
 });
 
@@ -21,6 +33,7 @@ const serverErrorSchema = z.object({
   error_message: z.string().min(1),
   stack: z.string().optional(),
   correlation_id: z.string().optional(),
+  correlation: correlationSchema,
 });
 
 const webhookSchema = z.object({
@@ -29,6 +42,7 @@ const webhookSchema = z.object({
   severity: z.string().optional(),
   payload: z.record(z.unknown()).optional(),
   correlation_id: z.string().optional(),
+  correlation: correlationSchema,
 });
 
 export function createIngestionRouter(

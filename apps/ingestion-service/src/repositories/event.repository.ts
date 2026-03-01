@@ -1,5 +1,6 @@
 import { getDb, events } from "@risk-engine/db";
 import type { Event } from "@risk-engine/db";
+import type { CorrelationContext } from "@risk-engine/types";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -13,7 +14,8 @@ export class EventIngestionRepository {
     type: string;
     severity: "INFO" | "WARN" | "ERROR" | "CRITICAL";
     payload: Record<string, unknown>;
-    correlationId: string | null;
+    correlationId: string;
+    correlation: CorrelationContext;
     occurredAt: Date;
   }): Promise<Event> {
     const [event] = await this.db.insert(events).values(data).returning();

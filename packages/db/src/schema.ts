@@ -102,6 +102,17 @@ export const events = pgTable(
       .notNull()
       .$type<"INFO" | "WARN" | "ERROR" | "CRITICAL">(),
     correlationId: varchar("correlation_id", { length: 256 }),
+    correlation: jsonb("correlation")
+      .$type<{
+        user_id?: string;
+        customer_id?: string;
+        order_id?: string;
+        payment_provider?: string;
+        plan?: string;
+        deployment_id?: string;
+      }>()
+      .notNull()
+      .default({}),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -111,6 +122,7 @@ export const events = pgTable(
     index("idx_events_project_time").on(table.projectId, table.occurredAt),
     index("idx_events_correlation").on(table.correlationId),
     index("idx_events_type_time").on(table.organizationId, table.type, table.occurredAt),
+    index("idx_events_correlation_gin").on(table.correlation),
   ],
 );
 

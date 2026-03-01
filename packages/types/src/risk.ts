@@ -25,3 +25,12 @@ export enum IncidentStatus {
   INVESTIGATING = "INVESTIGATING",
   RESOLVED = "RESOLVED",
 }
+
+export interface CorrelationContext {
+  user_id?: string;
+  customer_id?: string;
+  order_id?: string;
+  payment_provider?: string;
+  plan?: string;
+  deployment_id?: string;
+}
