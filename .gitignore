@@ -9,3 +9,4 @@ dist
 coverage
 pnpm-lock.yaml
 
+*.tsbuildinfo
