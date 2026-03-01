@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import { useEvents } from "@/hooks/useEvents";
 import { useIncidents } from "@/hooks/useIncidents";
 import { useApiKeys } from "@/hooks/useApiKeys";
+import { useWebhookEndpoints } from "@/hooks/useWebhookEndpoints";
 import { useSocket } from "@/hooks/useSocket";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
@@ -11,6 +12,7 @@ import { ProjectHeader } from "@/components/dashboard/ProjectHeader";
 import { EventsTable } from "@/components/dashboard/EventsTable";
 import { IncidentsTable } from "@/components/dashboard/IncidentsTable";
 import { ApiKeysManager } from "@/components/dashboard/ApiKeysManager";
+import { WebhookEndpointsManager } from "@/components/dashboard/WebhookEndpointsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import type { EventRow, IncidentRow } from "@/types/session";
@@ -26,6 +28,7 @@ export function ProjectDetailPage({ projectId }: ProjectDetailPageProps) {
   const { events, fetchEvents, addEvent } = useEvents();
   const { incidents, fetchIncidents, addIncident, updateIncident } = useIncidents();
   const { keys, fetchKeys, generateKey, revokeKey } = useApiKeys();
+  const { endpoints, fetchEndpoints, createEndpoint, revokeEndpoint } = useWebhookEndpoints();
   const [project, setProject] = useState<ProjectRow | null>(null);
   const [projectLoading, setProjectLoading] = useState(true);
 
@@ -41,7 +44,8 @@ export function ProjectDetailPage({ projectId }: ProjectDetailPageProps) {
     void fetchEvents(projectId);
     void fetchIncidents(projectId);
     void fetchKeys(projectId);
-  }, [projectId, fetchEvents, fetchIncidents, fetchKeys]);
+    void fetchEndpoints(projectId);
+  }, [projectId, fetchEvents, fetchIncidents, fetchKeys, fetchEndpoints]);
 
   const onEventCreated = useCallback(
     (payload: unknown) => {
@@ -101,6 +105,9 @@ export function ProjectDetailPage({ projectId }: ProjectDetailPageProps) {
           <TabsTrigger value="apikeys" className="text-xs">
             API Keys ({keys.length})
           </TabsTrigger>
+          <TabsTrigger value="webhooks" className="text-xs">
+            Webhooks ({endpoints.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="events" className="mt-4">
@@ -117,6 +124,15 @@ export function ProjectDetailPage({ projectId }: ProjectDetailPageProps) {
             projectId={projectId}
             onGenerate={generateKey}
             onRevoke={revokeKey}
+          />
+        </TabsContent>
+
+        <TabsContent value="webhooks" className="mt-4">
+          <WebhookEndpointsManager
+            endpoints={endpoints}
+            projectId={projectId}
+            onCreate={createEndpoint}
+            onRevoke={revokeEndpoint}
           />
         </TabsContent>
       </Tabs>

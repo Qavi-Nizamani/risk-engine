@@ -61,3 +61,16 @@ export interface ApiKeyRow {
   lastUsedAt: string | null;
   createdAt: string;
 }
+
+export interface WebhookEndpointRow {
+  id: string;
+  name: string;
+  projectId: string;
+  token: string;
+  webhookUrl: string;
+  createdAt: string;
+}
+
+export interface WebhookEndpointCreateResult extends WebhookEndpointRow {
+  secret: string;
+}

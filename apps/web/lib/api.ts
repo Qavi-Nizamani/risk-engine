@@ -7,6 +7,8 @@ import type {
   ProjectRow,
   ProjectCreateResult,
   MemberRow,
+  WebhookEndpointRow,
+  WebhookEndpointCreateResult,
 } from "@/types/session";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -127,5 +129,17 @@ export const api = {
       }),
     revoke: (id: string) =>
       request<void>(`/api-keys/${id}`, { method: "DELETE" }),
+  },
+
+  webhookEndpoints: {
+    list: (projectId: string) =>
+      request<WebhookEndpointRow[]>(`/projects/${projectId}/webhook-endpoints`),
+    create: (projectId: string, name: string) =>
+      request<WebhookEndpointCreateResult>(`/projects/${projectId}/webhook-endpoints`, {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }),
+    revoke: (id: string) =>
+      request<void>(`/webhook-endpoints/${id}`, { method: "DELETE" }),
   },
 } as const;
