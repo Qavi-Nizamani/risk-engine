@@ -13,6 +13,7 @@
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "format": "prettier --write .",
+    "start": "turbo run start",
     "clean": "turbo run clean"
   },
   "packageManager": "pnpm@9.0.0",
