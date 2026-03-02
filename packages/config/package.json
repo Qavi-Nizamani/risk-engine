@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
     "build": "tsc -b",
     "lint": "eslint . --ext .ts,.tsx",
     "type-check": "tsc -b --noEmit"
