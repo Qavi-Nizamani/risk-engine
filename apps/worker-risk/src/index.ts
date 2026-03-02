@@ -257,7 +257,11 @@ async function runSweep(
 
         await redisClient.set(
           investigatingKey,
-          encodeIncidentValue(incidentId, IncidentStatus.INVESTIGATING, createdAt),
+          encodeIncidentValue(
+            incidentId,
+            IncidentStatus.INVESTIGATING,
+            createdAt,
+          ),
           "KEEPTTL",
         );
 
@@ -428,8 +432,10 @@ async function runWorker(): Promise<void> {
 
       // ── PATH B: Re-spike during INVESTIGATING — reinstate active key, reset quiet window ──
       if (investigatingRaw !== null) {
-        const { incidentId: investigatingIncidentId, createdAt: investigatingCreatedAt } =
-          decodeIncidentValue(investigatingRaw);
+        const {
+          incidentId: investigatingIncidentId,
+          createdAt: investigatingCreatedAt,
+        } = decodeIncidentValue(investigatingRaw);
         const relatedEvents = recentErrors.slice(0, 10);
         if (relatedEvents.length > 0) {
           await db
@@ -446,14 +452,22 @@ async function runWorker(): Promise<void> {
         // Reinstate the active key (fresh TTL)
         await redisClient.set(
           activeKey,
-          encodeIncidentValue(investigatingIncidentId, IncidentStatus.OPEN, investigatingCreatedAt),
+          encodeIncidentValue(
+            investigatingIncidentId,
+            IncidentStatus.OPEN,
+            investigatingCreatedAt,
+          ),
           "EX",
           ACTIVE_INCIDENT_TTL_SECONDS,
         );
         // Reset investigating TTL to full value so the quiet window restarts from now
         await redisClient.set(
           investigatingKey,
-          encodeIncidentValue(investigatingIncidentId, IncidentStatus.OPEN, investigatingCreatedAt),
+          encodeIncidentValue(
+            investigatingIncidentId,
+            IncidentStatus.OPEN,
+            investigatingCreatedAt,
+          ),
           "EX",
           INVESTIGATING_INCIDENT_TTL_SECONDS,
         );
@@ -524,14 +538,22 @@ async function runWorker(): Promise<void> {
       // Active key: refreshed while errors keep arriving
       await redisClient.set(
         activeKey,
-        encodeIncidentValue(incident.id, IncidentStatus.OPEN, incidentCreatedAt),
+        encodeIncidentValue(
+          incident.id,
+          IncidentStatus.OPEN,
+          incidentCreatedAt,
+        ),
         "EX",
         ACTIVE_INCIDENT_TTL_SECONDS,
       );
       // Investigating key: drives the quiet window; reset on every re-spike
       await redisClient.set(
         investigatingKey,
-        encodeIncidentValue(incident.id, IncidentStatus.OPEN, incidentCreatedAt),
+        encodeIncidentValue(
+          incident.id,
+          IncidentStatus.OPEN,
+          incidentCreatedAt,
+        ),
         "EX",
         INVESTIGATING_INCIDENT_TTL_SECONDS,
       );
@@ -565,18 +587,23 @@ async function runWorker(): Promise<void> {
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 
 async function bootstrap(): Promise<void> {
-  startHealthServer();
-  await runWorker();
-  await incidentHealthCheckWorker();
+  try {
+    startHealthServer();
+    await runWorker();
+    await incidentHealthCheckWorker();
 
-  const connection = getBullMqConnectionOptions();
-  const queue = new Queue("incident_health_check", { connection });
+    const connection = getBullMqConnectionOptions();
+    const queue = new Queue("incident_health_check", { connection });
 
-  await queue.upsertJobScheduler(
-    "incident-health-check",
-    { every: 10_000 },
-    { name: "cron-health-check", data: {}, opts: {} },
-  );
+    await queue.upsertJobScheduler(
+      "incident-health-check",
+      { every: 10_000 },
+      { name: "cron-health-check", data: {}, opts: {} },
+    );
+  } catch (err) {
+    console.error("WORKER CRASH:", err);
+    process.exit(1);
+  }
 }
 
 bootstrap().catch((error) => {
