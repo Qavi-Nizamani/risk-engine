@@ -13,6 +13,7 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
+console.log("API_URL", API_URL);
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -45,7 +46,10 @@ export const api = {
   auth: {
     me: () => request<SessionInfo>("/auth/me"),
     login: (email: string, password: string) =>
-      request<{ user: SessionInfo["user"]; organization: SessionInfo["organization"] }>("/auth/login", {
+      request<{
+        user: SessionInfo["user"];
+        organization: SessionInfo["organization"];
+      }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       }),
@@ -75,16 +79,20 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
-    delete: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
+    delete: (id: string) =>
+      request<void>(`/projects/${id}`, { method: "DELETE" }),
   },
 
   organizations: {
     members: () => request<MemberRow[]>("/organizations/members"),
     updateMe: (data: { name?: string; plan?: string }) =>
-      request<{ id: string; name: string; plan: string; createdAt: string; updatedAt: string }>(
-        "/organizations/me",
-        { method: "PATCH", body: JSON.stringify(data) },
-      ),
+      request<{
+        id: string;
+        name: string;
+        plan: string;
+        createdAt: string;
+        updatedAt: string;
+      }>("/organizations/me", { method: "PATCH", body: JSON.stringify(data) }),
   },
 
   events: {
@@ -135,10 +143,13 @@ export const api = {
     list: (projectId: string) =>
       request<WebhookEndpointRow[]>(`/projects/${projectId}/webhook-endpoints`),
     create: (projectId: string, name: string) =>
-      request<WebhookEndpointCreateResult>(`/projects/${projectId}/webhook-endpoints`, {
-        method: "POST",
-        body: JSON.stringify({ name }),
-      }),
+      request<WebhookEndpointCreateResult>(
+        `/projects/${projectId}/webhook-endpoints`,
+        {
+          method: "POST",
+          body: JSON.stringify({ name }),
+        },
+      ),
     revoke: (id: string) =>
       request<void>(`/webhook-endpoints/${id}`, { method: "DELETE" }),
   },
