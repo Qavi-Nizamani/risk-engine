@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useEvents } from "@/hooks/useEvents";
 import { useIncidents } from "@/hooks/useIncidents";
 import { useApiKeys } from "@/hooks/useApiKeys";
@@ -8,16 +8,16 @@ import { useWebhookEndpoints } from "@/hooks/useWebhookEndpoints";
 import { useSocket } from "@/hooks/useSocket";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
+import { type TimeRange } from "@/lib/timeRange";
 import { ProjectHeader } from "@/components/dashboard/ProjectHeader";
 import { EventsTable } from "@/components/dashboard/EventsTable";
 import { IncidentsTable } from "@/components/dashboard/IncidentsTable";
 import { ApiKeysManager } from "@/components/dashboard/ApiKeysManager";
 import { WebhookEndpointsManager } from "@/components/dashboard/WebhookEndpointsManager";
+import { TimeRangeFilter } from "@/components/dashboard/TimeRangeFilter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import type { EventRow, IncidentRow } from "@/types/session";
-import { useState } from "react";
-import type { ProjectRow } from "@/types/session";
+import type { EventRow, IncidentRow, ProjectRow } from "@/types/session";
 
 interface ProjectDetailPageProps {
   projectId: string;
@@ -31,6 +31,7 @@ export function ProjectDetailPage({ projectId }: ProjectDetailPageProps) {
   const { endpoints, fetchEndpoints, createEndpoint, revokeEndpoint } = useWebhookEndpoints();
   const [project, setProject] = useState<ProjectRow | null>(null);
   const [projectLoading, setProjectLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState<TimeRange>("today");
 
   useEffect(() => {
     setProjectLoading(true);
@@ -41,11 +42,15 @@ export function ProjectDetailPage({ projectId }: ProjectDetailPageProps) {
   }, [projectId]);
 
   useEffect(() => {
-    void fetchEvents(projectId);
-    void fetchIncidents(projectId);
     void fetchKeys(projectId);
     void fetchEndpoints(projectId);
-  }, [projectId, fetchEvents, fetchIncidents, fetchKeys, fetchEndpoints]);
+  }, [projectId, fetchKeys, fetchEndpoints]);
+
+  // Re-fetch events & incidents whenever projectId or timeRange changes
+  useEffect(() => {
+    void fetchEvents(projectId, timeRange);
+    void fetchIncidents(projectId, timeRange);
+  }, [projectId, timeRange, fetchEvents, fetchIncidents]);
 
   const onEventCreated = useCallback(
     (payload: unknown) => {
@@ -95,20 +100,24 @@ export function ProjectDetailPage({ projectId }: ProjectDetailPageProps) {
       <ProjectHeader project={project} />
 
       <Tabs defaultValue="events">
-        <TabsList className="bg-card border border-border">
-          <TabsTrigger value="events" className="text-xs">
-            Events ({events.length})
-          </TabsTrigger>
-          <TabsTrigger value="incidents" className="text-xs">
-            Incidents ({incidents.length})
-          </TabsTrigger>
-          <TabsTrigger value="apikeys" className="text-xs">
-            API Keys ({keys.length})
-          </TabsTrigger>
-          <TabsTrigger value="webhooks" className="text-xs">
-            Webhooks ({endpoints.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-4">
+          <TabsList className="bg-card border border-border">
+            <TabsTrigger value="events" className="text-xs">
+              Events ({events.length})
+            </TabsTrigger>
+            <TabsTrigger value="incidents" className="text-xs">
+              Incidents ({incidents.length})
+            </TabsTrigger>
+            <TabsTrigger value="apikeys" className="text-xs">
+              API Keys ({keys.length})
+            </TabsTrigger>
+            <TabsTrigger value="webhooks" className="text-xs">
+              Webhooks ({endpoints.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TimeRangeFilter value={timeRange} onChange={setTimeRange} />
+        </div>
 
         <TabsContent value="events" className="mt-4">
           <EventsTable events={events} />

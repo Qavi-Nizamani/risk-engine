@@ -23,9 +23,9 @@ export class IncidentController {
   };
 
   list = async (req: Request, res: Response): Promise<void> => {
-    const { project_id } = req.query as { project_id?: string };
+    const { project_id, from, to } = req.query as { project_id?: string; from?: string; to?: string };
 
-    const incidents = await this.incidentService.list(req.auth.organization.id, project_id);
+    const incidents = await this.incidentService.list(req.auth.organization.id, project_id, from, to);
 
     res.json(
       incidents.map((i) => ({

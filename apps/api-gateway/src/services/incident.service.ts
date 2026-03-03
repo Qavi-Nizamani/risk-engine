@@ -52,7 +52,17 @@ export class IncidentService {
     return incident;
   }
 
-  async list(organizationId: string, projectId?: string): Promise<Incident[]> {
-    return this.incidentRepo.findAllByOrg(organizationId, projectId);
+  async list(
+    organizationId: string,
+    projectId?: string,
+    from?: string,
+    to?: string,
+  ): Promise<Incident[]> {
+    return this.incidentRepo.findAllByOrg({
+      organizationId,
+      projectId,
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+    });
   }
 }

@@ -1,8 +1,15 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { getDb, incidents } from "@risk-engine/db";
 import type { Incident } from "@risk-engine/db";
 
 type Db = ReturnType<typeof getDb>;
+
+export interface IncidentQueryFilters {
+  organizationId: string;
+  projectId?: string;
+  from?: Date;
+  to?: Date;
+}
 
 export class IncidentRepository {
   constructor(private readonly db: Db) {}
@@ -18,9 +25,16 @@ export class IncidentRepository {
     return incident;
   }
 
-  async findAllByOrg(organizationId: string, projectId?: string): Promise<Incident[]> {
+  async findAllByOrg(filters: IncidentQueryFilters): Promise<Incident[]> {
+    const { organizationId, projectId, from, to } = filters;
     const conditions = [eq(incidents.organizationId, organizationId)];
     if (projectId) conditions.push(eq(incidents.projectId, projectId));
-    return this.db.select().from(incidents).where(and(...conditions));
+    if (from) conditions.push(gte(incidents.createdAt, from));
+    if (to) conditions.push(lte(incidents.createdAt, to));
+    return this.db
+      .select()
+      .from(incidents)
+      .where(and(...conditions))
+      .orderBy(desc(incidents.createdAt));
   }
 }

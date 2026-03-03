@@ -101,21 +101,27 @@ export const api = {
       type?: string;
       severity?: string;
       project_id?: string;
+      from?: string;
+      to?: string;
     }) => {
       const query = new URLSearchParams();
       if (params?.limit) query.set("limit", String(params.limit));
       if (params?.type) query.set("type", params.type);
       if (params?.severity) query.set("severity", params.severity);
       if (params?.project_id) query.set("project_id", params.project_id);
+      if (params?.from) query.set("from", params.from);
+      if (params?.to) query.set("to", params.to);
       const qs = query.toString();
       return request<EventRow[]>(`/events${qs ? `?${qs}` : ""}`);
     },
   },
 
   incidents: {
-    list: (params?: { project_id?: string }) => {
+    list: (params?: { project_id?: string; from?: string; to?: string }) => {
       const query = new URLSearchParams();
       if (params?.project_id) query.set("project_id", params.project_id);
+      if (params?.from) query.set("from", params.from);
+      if (params?.to) query.set("to", params.to);
       const qs = query.toString();
       return request<IncidentRow[]>(`/incidents${qs ? `?${qs}` : ""}`);
     },
