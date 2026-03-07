@@ -89,11 +89,11 @@ export class IngestionController {
     });
 
     logger.info(
-      { organizationId: req.auth.organization.id, eventId: result.id, type },
+      { organizationId: req.auth.organization.id, jobId: result.jobId, type },
       "Manual event ingested",
     );
 
-    res.status(201).json(result);
+    res.status(202).json(result);
   };
 
   ingestServerError = async (req: Request, res: Response): Promise<void> => {
@@ -135,11 +135,11 @@ export class IngestionController {
     });
 
     logger.info(
-      { organizationId: req.auth.organization.id, eventId: result.id, status_code, severity },
+      { organizationId: req.auth.organization.id, jobId: result.jobId, status_code, severity },
       "Server error event ingested",
     );
 
-    res.status(201).json(result);
+    res.status(202).json(result);
   };
 
   ingestWebhook = async (req: Request, res: Response): Promise<void> => {
@@ -187,11 +187,11 @@ export class IngestionController {
     });
 
     logger.info(
-      { organizationId: req.auth.organization.id, eventId: result.id, type },
+      { organizationId: req.auth.organization.id, jobId: result.jobId, type },
       "Webhook event ingested",
     );
 
-    res.status(201).json(result);
+    res.status(202).json(result);
   };
 
   ingestStripe = async (req: Request, res: Response): Promise<void> => {
@@ -248,11 +248,11 @@ export class IngestionController {
     });
 
     logger.info(
-      { organizationId: req.auth.organization.id, eventId: result.id, stripeType, type },
+      { organizationId: req.auth.organization.id, jobId: result.jobId, stripeType, type },
       "Stripe event ingested",
     );
 
-    res.status(201).json(result);
+    res.status(202).json(result);
   };
 
   ingestTokenWebhook = async (req: Request, res: Response): Promise<void> => {
@@ -293,10 +293,10 @@ export class IngestionController {
     });
 
     logger.info(
-      { organizationId: req.auth.organization.id, eventId: result.id, source },
+      { organizationId: req.auth.organization.id, jobId: result.jobId, source },
       "Token webhook event ingested",
     );
 
-    res.status(201).json(result);
+    res.status(202).json(result);
   };
 }

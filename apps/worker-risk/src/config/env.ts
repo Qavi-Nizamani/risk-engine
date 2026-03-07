@@ -25,3 +25,7 @@ export function getAnomalyQueueName(): string {
 export function getRedisStreamName(): string {
   return process.env.REDIS_STREAM_NAME ?? "platform-events";
 }
+
+export function getIngestionQueueName(): string {
+  return process.env.INGESTION_QUEUE_NAME ?? "event-ingestion";
+}

@@ -7,7 +7,6 @@ import { createAuthMiddleware } from "./middleware/authenticate";
 import { createWebhookTokenAuthMiddleware } from "./middleware/webhookTokenAuth";
 
 // Repository, Service, Controller
-import { EventIngestionRepository } from "./repositories/event.repository";
 import { WebhookEndpointLookupRepository } from "./repositories/webhookEndpoint.repository";
 import { EventIngestionService } from "./services/eventIngestion.service";
 import { IngestionController } from "./controllers/ingestion.controller";
@@ -20,10 +19,9 @@ async function bootstrap(): Promise<void> {
   const authenticate = createAuthMiddleware(db);
 
   // ── Repository / Service / Controller ────────────────────────────────────────
-  const eventRepo = new EventIngestionRepository(db);
   const webhookEndpointRepo = new WebhookEndpointLookupRepository(db);
   const webhookTokenAuth = createWebhookTokenAuthMiddleware(webhookEndpointRepo);
-  const ingestionService = new EventIngestionService(eventRepo);
+  const ingestionService = new EventIngestionService();
   const ingestionCtrl = new IngestionController(ingestionService);
 
   // ── App ───────────────────────────────────────────────────────────────────────

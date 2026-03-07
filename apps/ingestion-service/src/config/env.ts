@@ -21,3 +21,7 @@ export function getIngestionPort(): number {
 export function getAnomalyQueueName(): string {
   return process.env.ANOMALY_QUEUE_NAME ?? "anomaly-detection";
 }
+
+export function getIngestionQueueName(): string {
+  return process.env.INGESTION_QUEUE_NAME ?? "event-ingestion";
+}

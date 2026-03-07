@@ -12,10 +12,12 @@ import { getDb, events, incidents, incidentEvents } from "@risk-engine/db";
 import {
   getAnomalyQueueName,
   getDatabaseUrl,
+  getIngestionQueueName,
   getWorkerPort,
 } from "./config/env";
 import {
   emitAnomalyDetected,
+  emitEventIngested,
   emitIncidentCreated,
   emitIncidentUpdated,
   type RedisStreamClient,
@@ -584,11 +586,93 @@ async function runWorker(): Promise<void> {
   );
 }
 
+// ── Ingestion worker ─────────────────────────────────────────────────────────
+
+interface IngestionJobPayload {
+  organizationId: string;
+  projectId: string;
+  source: string;
+  type: string;
+  severity: EventSeverity;
+  payload: Record<string, unknown>;
+  correlationId: string;
+  correlation: Record<string, unknown>;
+  occurredAt: string;
+}
+
+async function runIngestionWorker(): Promise<void> {
+  const queueName = getIngestionQueueName();
+  const anomalyQueueName = getAnomalyQueueName();
+  const connection = getBullMqConnectionOptions();
+  const redisClient = getRedisClient();
+  const streamClient: RedisStreamClient = redisClient as unknown as RedisStreamClient;
+  const db = getDb(getDatabaseUrl());
+  const anomalyQueue = new Queue<AnomalyJobPayload>(anomalyQueueName, { connection });
+
+  const worker = new Worker<IngestionJobPayload>(
+    queueName,
+    async (job) => {
+      const { organizationId, projectId, source, type, severity, payload, correlationId, correlation, occurredAt } = job.data;
+
+      const occurredAtDate = new Date(occurredAt);
+
+      const [event] = await db
+        .insert(events)
+        .values({
+          organizationId,
+          projectId,
+          source,
+          type,
+          severity: severity as "INFO" | "WARN" | "ERROR" | "CRITICAL",
+          payload,
+          correlationId,
+          correlation,
+          occurredAt: occurredAtDate,
+        })
+        .returning();
+
+      const occurredAtMs = event.occurredAt.getTime();
+
+      await emitEventIngested(streamClient, {
+        organizationId,
+        projectId,
+        eventId: event.id,
+        type: event.type,
+        source: event.source,
+        severity,
+        payload: event.payload,
+        occurredAt: event.occurredAt.toISOString(),
+        timestamp: occurredAtMs,
+      });
+
+      await anomalyQueue.add("anomaly-check", {
+        organizationId,
+        projectId,
+        eventId: event.id,
+        severity,
+        correlationId,
+        timestamp: occurredAtMs,
+      });
+
+      logger.info({ organizationId, projectId, eventId: event.id, type }, "Event ingested");
+    },
+    { connection },
+  );
+
+  worker.on("failed", (job, error) =>
+    logger.error({ jobId: job?.id, error }, "Ingestion worker job failed"),
+  );
+  worker.on("completed", (job) =>
+    logger.info({ jobId: job.id }, "Ingestion worker job completed"),
+  );
+}
+
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 
 async function bootstrap(): Promise<void> {
   try {
     startHealthServer();
+    await runIngestionWorker();
     await runWorker();
     await incidentHealthCheckWorker();
 
