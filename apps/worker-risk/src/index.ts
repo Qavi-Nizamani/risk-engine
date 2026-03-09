@@ -40,7 +40,7 @@ const INVESTIGATING_INCIDENT_TTL_SECONDS = 300; // full quiet window; resets on 
 const LOCK_TTL_MS = 10_000; // incident creation lock
 const SWEEP_LOCK_TTL_MS = 20_000; // per-incident sweep lock (> sweep interval of 10 s)
 const RESOLVE_THRESHOLD_MS = 45_000; // resolve within last 15 s of investigating TTL
-
+const ERRORS_COUNT_LIMIT = 10;
 /**
  * Lua: atomically read PTTL and conditionally delete the key.
  *
@@ -383,7 +383,7 @@ async function runWorker(): Promise<void> {
 
       const errorCount = recentErrors.length;
 
-      if (errorCount <= 0) {
+      if (errorCount <= ERRORS_COUNT_LIMIT) {
         logger.info(
           { organizationId, errorCount },
           "Error rate below anomaly threshold",
