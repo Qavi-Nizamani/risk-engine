@@ -38,8 +38,10 @@ const logger = createLogger("worker-anomaly");
 const ACTIVE_INCIDENT_TTL_SECONDS = 60; // errors must keep coming to stay OPEN
 const INVESTIGATING_INCIDENT_TTL_SECONDS = 300; // full quiet window; resets on re-spike
 const LOCK_TTL_MS = 10_000; // incident creation lock
-const SWEEP_LOCK_TTL_MS = 20_000; // per-incident sweep lock (> sweep interval of 10 s)
-const RESOLVE_THRESHOLD_MS = 45_000; // resolve within last 15 s of investigating TTL
+const SWEEP_LOCK_TTL_MS = 30_000; // per-incident sweep lock (> sweep interval of 10 s)
+// Resolve when ≤20% of the investigating TTL remains so threshold always
+// scales with the TTL and never exceeds it (avoids premature deletion).
+const RESOLVE_THRESHOLD_MS = Math.floor(INVESTIGATING_INCIDENT_TTL_SECONDS * 1000 * 0.2);
 const ERRORS_COUNT_LIMIT = 10;
 /**
  * Lua: atomically read PTTL and conditionally delete the key.
@@ -349,6 +351,40 @@ async function incidentHealthCheckWorker(): Promise<void> {
   );
 }
 
+// ── Incident stats helper ────────────────────────────────────────────────────
+
+/**
+ * Returns cumulative stats for all events linked to an incident.
+ * Used to build a summary that reflects the full incident lifetime,
+ * not just the current detection window.
+ */
+async function getIncidentStats(
+  db: ReturnType<typeof getDb>,
+  incidentId: string,
+): Promise<{ totalCount: number; durationSeconds: number }> {
+  const [stats] = await db
+    .select({
+      totalCount: sql<number>`count(*)`,
+      minOccurredAt: sql<string>`min(${events.occurredAt})`,
+      maxOccurredAt: sql<string>`max(${events.occurredAt})`,
+    })
+    .from(incidentEvents)
+    .innerJoin(events, eq(incidentEvents.eventId, events.id))
+    .where(eq(incidentEvents.incidentId, incidentId));
+
+  const totalCount = Number(stats.totalCount);
+  const durationSeconds =
+    stats.minOccurredAt && stats.maxOccurredAt
+      ? Math.round(
+          (new Date(stats.maxOccurredAt).getTime() -
+            new Date(stats.minOccurredAt).getTime()) /
+            1000,
+        )
+      : 0;
+
+  return { totalCount, durationSeconds };
+}
+
 // ── Anomaly worker ───────────────────────────────────────────────────────────
 
 async function runWorker(): Promise<void> {
@@ -377,6 +413,15 @@ async function runWorker(): Promise<void> {
             eq(events.severity, EventSeverity.ERROR),
             gte(events.occurredAt, windowStart),
             lte(events.occurredAt, new Date(timestamp)),
+            // Exclude events already claimed by a resolved incident so a
+            // quiet period followed by a single new error doesn't immediately
+            // re-open an incident using the previous incident's error window.
+            sql`NOT EXISTS (
+              SELECT 1 FROM incident_events ie
+              INNER JOIN incidents i ON i.id = ie.incident_id
+              WHERE ie.event_id = ${events.id}
+              AND i.status = ${IncidentStatus.RESOLVED}
+            )`,
           ),
         )
         .orderBy(desc(events.occurredAt));
@@ -401,7 +446,7 @@ async function runWorker(): Promise<void> {
       const activeKey = buildActiveIncidentKey(organizationId, projectId);
       const activeRaw: string | null = await redisClient.get(activeKey);
 
-      // ── PATH A: Active incident — attach events, refresh TTL ─────────────────
+      // ── PATH A: Active incident — attach events, refresh TTL, update summary ──
       if (activeRaw !== null) {
         const { incidentId: activeIncidentId } = decodeIncidentValue(activeRaw);
         const relatedEvents = recentErrors.slice(0, 10);
@@ -416,15 +461,34 @@ async function runWorker(): Promise<void> {
             )
             .onConflictDoNothing();
         }
+
+        // Update summary with cumulative stats across the full incident lifetime
+        const { totalCount, durationSeconds } = await getIncidentStats(db, activeIncidentId);
+        await db
+          .update(incidents)
+          .set({
+            summary: `High error rate detected: ${totalCount} ERROR events over ${durationSeconds} seconds.`,
+            updatedAt: sql`now()`,
+          })
+          .where(eq(incidents.id, activeIncidentId));
+
         await redisClient.expire(activeKey, ACTIVE_INCIDENT_TTL_SECONDS);
+        // Also refresh the investigating key so it always outlasts the active key.
+        // Without this, a long burst resets activeKey TTL repeatedly while
+        // investigatingKey expires at its original time — the sweep then finds
+        // no investigating key and the incident stays OPEN forever.
+        const investigatingKeyForRefresh = buildInvestigatingKey(organizationId, projectId);
+        await redisClient.expire(investigatingKeyForRefresh, INVESTIGATING_INCIDENT_TTL_SECONDS);
 
         logger.info(
           {
             organizationId,
             incidentId: activeIncidentId,
             attachedCount: relatedEvents.length,
+            totalCount,
+            durationSeconds,
           },
-          "Attached events to existing incident, refreshed active TTL",
+          "Attached events to existing incident, refreshed active TTL, updated summary",
         );
         return;
       }
@@ -474,9 +538,14 @@ async function runWorker(): Promise<void> {
           INVESTIGATING_INCIDENT_TTL_SECONDS,
         );
 
+        const { totalCount, durationSeconds } = await getIncidentStats(db, investigatingIncidentId);
         await db
           .update(incidents)
-          .set({ status: IncidentStatus.OPEN, updatedAt: sql`now()` })
+          .set({
+            status: IncidentStatus.OPEN,
+            summary: `High error rate detected: ${totalCount} ERROR events over ${durationSeconds} seconds.`,
+            updatedAt: sql`now()`,
+          })
           .where(eq(incidents.id, investigatingIncidentId));
 
         await emitIncidentUpdated(streamClient, {
@@ -681,7 +750,7 @@ async function bootstrap(): Promise<void> {
 
     await queue.upsertJobScheduler(
       "incident-health-check",
-      { every: 10_000 },
+      { every: 30_000 },
       { name: "cron-health-check", data: {}, opts: {} },
     );
   } catch (err) {
