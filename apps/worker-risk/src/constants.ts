@@ -8,7 +8,7 @@ export const SWEEP_LOCK_TTL_MS = 30_000; // per-incident sweep lock (> sweep int
 export const RESOLVE_THRESHOLD_MS = Math.floor(
   INVESTIGATING_INCIDENT_TTL_SECONDS * 1000 * 0.2,
 );
-export const ERRORS_COUNT_LIMIT = 10;
+export const ERRORS_COUNT_LIMIT = 51;
 
 /**
  * Lua: atomically read PTTL and conditionally delete the key.

@@ -12,6 +12,7 @@ import {
   getJwtSecret,
   getAllowedOrigin,
   getIngestionBaseUrl,
+  isSignupDisabled,
 } from "./config/env";
 import { createAuthMiddleware } from "./middleware/authenticate";
 
@@ -71,7 +72,7 @@ async function bootstrap(): Promise<void> {
   const webhookEndpointRepo = new WebhookEndpointRepository(db);
 
   // ── Services ──────────────────────────────────────────────────────────────────
-  const authService = new AuthService(userRepo, orgRepo, jwtSecret);
+  const authService = new AuthService(userRepo, orgRepo, jwtSecret, isSignupDisabled());
   const orgService = new OrganizationService(orgRepo);
   const projectService = new ProjectService(projectRepo, apiKeyRepo);
   const incidentService = new IncidentService(incidentRepo, projectRepo, redis, streamName);

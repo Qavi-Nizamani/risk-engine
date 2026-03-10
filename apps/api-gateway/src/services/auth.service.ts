@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import type { User, Organization } from "@risk-engine/db";
-import { ConflictError, UnauthorizedError, BadRequestError } from "@risk-engine/http";
+import { ConflictError, UnauthorizedError, BadRequestError, ForbiddenError } from "@risk-engine/http";
 import type { AuthRepository } from "../repositories/auth.repository";
 import type { OrganizationRepository } from "../repositories/organization.repository";
 
@@ -29,6 +29,7 @@ export class AuthService {
     private readonly userRepo: AuthRepository,
     private readonly orgRepo: OrganizationRepository,
     private readonly jwtSecret: string,
+    private readonly signupDisabled: boolean = false,
   ) {}
 
   get cookieMaxAge(): number {
@@ -44,6 +45,10 @@ export class AuthService {
     organization: Pick<Organization, "id" | "name" | "plan">;
     token: string;
   }> {
+    if (this.signupDisabled) {
+      throw new ForbiddenError("Signup is currently disabled");
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(input.email)) {
       throw new BadRequestError("Invalid email address");

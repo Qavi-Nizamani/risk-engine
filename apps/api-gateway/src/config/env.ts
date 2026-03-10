@@ -43,3 +43,7 @@ export function getAllowedOrigin(): string {
 export function getIngestionBaseUrl(): string {
   return process.env.INGESTION_BASE_URL ?? "http://localhost:4100";
 }
+
+export function isSignupDisabled(): boolean {
+  return process.env.SIGNUP_DISABLED === "true";
+}
