@@ -1,8 +1,8 @@
 import type { createRedisClient } from "@risk-engine/redis";
 
 type Redis = ReturnType<typeof createRedisClient>;
-import type { Incident } from "@risk-engine/db";
-import { ForbiddenError } from "@risk-engine/http";
+import type { Incident, Event } from "@risk-engine/db";
+import { ForbiddenError, NotFoundError } from "@risk-engine/http";
 import { INCIDENT_CREATED } from "@risk-engine/events";
 import type { IncidentRepository } from "../repositories/incident.repository";
 import type { ProjectRepository } from "../repositories/project.repository";
@@ -50,6 +50,12 @@ export class IncidentService {
     );
 
     return incident;
+  }
+
+  async getEvents(incidentId: string, organizationId: string): Promise<Event[]> {
+    const incident = await this.incidentRepo.findById(incidentId, organizationId);
+    if (!incident) throw new NotFoundError("Incident not found");
+    return this.incidentRepo.findEventsByIncidentId(incidentId);
   }
 
   async list(

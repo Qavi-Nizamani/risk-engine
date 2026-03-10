@@ -19,6 +19,7 @@ export function createIncidentsRouter(
 
   router.post("/incidents", authenticate, validate(createIncidentSchema), asyncHandler(ctrl.create));
   router.get("/incidents", authenticate, asyncHandler(ctrl.list));
+  router.get("/incidents/:id/events", authenticate, asyncHandler(ctrl.getEvents));
 
   return router;
 }

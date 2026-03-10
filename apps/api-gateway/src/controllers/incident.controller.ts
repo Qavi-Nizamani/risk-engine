@@ -22,6 +22,25 @@ export class IncidentController {
     res.status(201).json({ id: incident.id });
   };
 
+  getEvents = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const evs = await this.incidentService.getEvents(id, req.auth.organization.id);
+    res.json(
+      evs.map((e) => ({
+        id: e.id,
+        organizationId: e.organizationId,
+        projectId: e.projectId,
+        source: e.source,
+        type: e.type,
+        severity: e.severity,
+        payload: e.payload,
+        correlationId: e.correlationId,
+        occurredAt: e.occurredAt.toISOString(),
+        createdAt: e.createdAt.toISOString(),
+      })),
+    );
+  };
+
   list = async (req: Request, res: Response): Promise<void> => {
     const { project_id, from, to } = req.query as { project_id?: string; from?: string; to?: string };
 

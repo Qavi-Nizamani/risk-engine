@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, lte } from "drizzle-orm";
-import { getDb, incidents } from "@risk-engine/db";
-import type { Incident } from "@risk-engine/db";
+import { getDb, incidents, incidentEvents, events } from "@risk-engine/db";
+import type { Incident, Event } from "@risk-engine/db";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -23,6 +23,24 @@ export class IncidentRepository {
   }): Promise<Incident> {
     const [incident] = await this.db.insert(incidents).values(data).returning();
     return incident;
+  }
+
+  async findById(id: string, organizationId: string): Promise<Incident | null> {
+    const [incident] = await this.db
+      .select()
+      .from(incidents)
+      .where(and(eq(incidents.id, id), eq(incidents.organizationId, organizationId)));
+    return incident ?? null;
+  }
+
+  async findEventsByIncidentId(incidentId: string): Promise<Event[]> {
+    return this.db
+      .select({ event: events })
+      .from(incidentEvents)
+      .innerJoin(events, eq(incidentEvents.eventId, events.id))
+      .where(eq(incidentEvents.incidentId, incidentId))
+      .orderBy(desc(events.occurredAt))
+      .then((rows) => rows.map((r) => r.event));
   }
 
   async findAllByOrg(filters: IncidentQueryFilters): Promise<Incident[]> {

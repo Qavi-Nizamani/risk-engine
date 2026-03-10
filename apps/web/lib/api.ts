@@ -125,6 +125,8 @@ export const api = {
       const qs = query.toString();
       return request<IncidentRow[]>(`/incidents${qs ? `?${qs}` : ""}`);
     },
+    getEvents: (incidentId: string) =>
+      request<EventRow[]>(`/incidents/${incidentId}/events`),
   },
 
   apiKeys: {
