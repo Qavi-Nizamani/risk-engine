@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthCard } from "@/components/layout/AuthCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { api, ApiError } from "@/lib/api";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -42,5 +42,19 @@ export default function VerifyEmailPage() {
         <p className="text-sm text-muted-foreground text-center">Verifying…</p>
       )}
     </AuthCard>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard title="Verifying your email" description="Incident Intelligence Platform">
+          <p className="text-sm text-muted-foreground text-center">Verifying…</p>
+        </AuthCard>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
