@@ -8,7 +8,7 @@ import type {
   WireServerErrorBody,
 } from "./types.js";
 
-const DEFAULT_BASE_URL = "http://vigilry.com";
+const DEFAULT_BASE_URL = "https://ingest.vigilry.com";
 
 function normalizeSeverity(severity: string): string {
   return severity.toUpperCase();
