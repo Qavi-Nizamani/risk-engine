@@ -56,6 +56,18 @@ export class AuthController {
     });
   };
 
+  forgotPassword = async (req: Request, res: Response): Promise<void> => {
+    const { email } = req.body as { email: string };
+    const result = await this.authService.forgotPassword(email);
+    res.json(result);
+  };
+
+  resetPassword = async (req: Request, res: Response): Promise<void> => {
+    const { token, password } = req.body as { token: string; password: string };
+    const result = await this.authService.resetPassword(token, password);
+    res.json(result);
+  };
+
   logout = (_req: Request, res: Response): void => {
     res.clearCookie("session");
     res.json({ message: "Logged out" });

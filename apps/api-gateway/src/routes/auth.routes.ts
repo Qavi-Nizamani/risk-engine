@@ -24,6 +24,15 @@ const resendVerificationSchema = z.object({
   email: z.string().email(),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8),
+});
+
 export function createAuthRouter(
   ctrl: AuthController,
   authenticate: RequestHandler,
@@ -34,6 +43,8 @@ export function createAuthRouter(
   router.post("/auth/login", validate(loginSchema), asyncHandler(ctrl.login));
   router.post("/auth/verify-email", validate(verifyEmailSchema), asyncHandler(ctrl.verifyEmail));
   router.post("/auth/resend-verification", validate(resendVerificationSchema), asyncHandler(ctrl.resendVerification));
+  router.post("/auth/forgot-password", validate(forgotPasswordSchema), asyncHandler(ctrl.forgotPassword));
+  router.post("/auth/reset-password", validate(resetPasswordSchema), asyncHandler(ctrl.resetPassword));
   router.post("/auth/logout", ctrl.logout);
   router.get("/auth/me", authenticate, ctrl.me);
 

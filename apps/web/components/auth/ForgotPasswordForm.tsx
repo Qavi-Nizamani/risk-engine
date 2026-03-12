@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -23,30 +22,25 @@ import { api, ApiError } from "@/lib/api";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
-  password: z.string().min(1, "Password is required"),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-const UNVERIFIED_ERROR = "Please verify your email before logging in";
-
-export function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const passwordReset = searchParams.get("reset") === "1";
-
+export function ForgotPasswordForm() {
+  const [serverMessage, setServerMessage] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { email: "" },
   });
 
   const onSubmit = async (values: FormValues) => {
+    setServerMessage(null);
     setServerError(null);
     try {
-      await api.auth.login(values.email, values.password);
-      router.push("/dashboard");
+      const result = await api.auth.forgotPassword(values.email);
+      setServerMessage(result.message);
     } catch (err) {
       if (err instanceof ApiError) {
         setServerError(err.message);
@@ -57,18 +51,12 @@ export function LoginForm() {
   };
 
   return (
-    <AuthCard title="Sign in" description="Incident Intelligence Platform">
+    <AuthCard title="Forgot password" description="We'll send you a reset link">
       <Form {...form}>
         <form
           onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
           className="space-y-4"
         >
-          {passwordReset && (
-            <Alert>
-              <AlertDescription>Password updated — sign in with your new password.</AlertDescription>
-            </Alert>
-          )}
-
           <FormField
             control={form.control}
             name="email"
@@ -90,66 +78,35 @@ export function LoginForm() {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <div className="flex items-center justify-between">
-                  <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Password
-                  </FormLabel>
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <FormControl>
-                  <Input
-                    type="password"
-                    placeholder="Your password"
-                    autoComplete="current-password"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {serverMessage && (
+            <Alert>
+              <AlertDescription>{serverMessage}</AlertDescription>
+            </Alert>
+          )}
 
           {serverError && (
             <Alert variant="destructive">
               <AlertDescription>{serverError}</AlertDescription>
-              {serverError === UNVERIFIED_ERROR && (
-                <Link
-                  href={`/verify-email?email=${encodeURIComponent(form.getValues("email"))}`}
-                  className="block mt-2 text-xs underline underline-offset-4 text-destructive-foreground hover:opacity-80"
-                >
-                  Resend verification email
-                </Link>
-              )}
             </Alert>
           )}
 
           <Button
             type="submit"
             className="w-full mt-2"
-            disabled={form.formState.isSubmitting}
+            disabled={form.formState.isSubmitting || !!serverMessage}
           >
-            {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
+            {form.formState.isSubmitting ? "Sending…" : "Send reset link"}
           </Button>
         </form>
       </Form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{" "}
+        Remember your password?{" "}
         <Link
-          href="/signup"
+          href="/login"
           className="text-primary hover:text-primary/80 underline-offset-4 hover:underline"
         >
-          Create one
+          Sign in
         </Link>
       </p>
     </AuthCard>

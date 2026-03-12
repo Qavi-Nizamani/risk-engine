@@ -8,6 +8,13 @@
       "when": 1773247854416,
       "tag": "0000_peaceful_mulholland_black",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773321350897,
+      "tag": "0001_low_silver_fox",
+      "breakpoints": true
     }
   ]
 }

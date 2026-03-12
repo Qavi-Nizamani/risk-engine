@@ -21,32 +21,39 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthCard } from "@/components/layout/AuthCard";
 import { api, ApiError } from "@/lib/api";
 
-const schema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(1, "Password is required"),
-});
+const schema = z
+  .object({
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 type FormValues = z.infer<typeof schema>;
 
-const UNVERIFIED_ERROR = "Please verify your email before logging in";
-
-export function LoginForm() {
+export function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const passwordReset = searchParams.get("reset") === "1";
+  const token = searchParams.get("token") ?? "";
 
   const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { password: "", confirmPassword: "" },
   });
 
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
+    if (!token) {
+      setServerError("Invalid reset link — no token found");
+      return;
+    }
     try {
-      await api.auth.login(values.email, values.password);
-      router.push("/dashboard");
+      await api.auth.resetPassword(token, values.password);
+      router.push("/login?reset=1");
     } catch (err) {
       if (err instanceof ApiError) {
         setServerError(err.message);
@@ -57,31 +64,25 @@ export function LoginForm() {
   };
 
   return (
-    <AuthCard title="Sign in" description="Incident Intelligence Platform">
+    <AuthCard title="Reset password" description="Choose a new password">
       <Form {...form}>
         <form
           onSubmit={(e) => void form.handleSubmit(onSubmit)(e)}
           className="space-y-4"
         >
-          {passwordReset && (
-            <Alert>
-              <AlertDescription>Password updated — sign in with your new password.</AlertDescription>
-            </Alert>
-          )}
-
           <FormField
             control={form.control}
-            name="email"
+            name="password"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">
-                  Email
+                  New password
                 </FormLabel>
                 <FormControl>
                   <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    autoComplete="email"
+                    type="password"
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
                     {...field}
                   />
                 </FormControl>
@@ -92,25 +93,17 @@ export function LoginForm() {
 
           <FormField
             control={form.control}
-            name="password"
+            name="confirmPassword"
             render={({ field }) => (
               <FormItem>
-                <div className="flex items-center justify-between">
-                  <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Password
-                  </FormLabel>
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
+                <FormLabel className="text-xs uppercase tracking-widest text-muted-foreground">
+                  Confirm password
+                </FormLabel>
                 <FormControl>
                   <Input
                     type="password"
-                    placeholder="Your password"
-                    autoComplete="current-password"
+                    placeholder="Repeat your new password"
+                    autoComplete="new-password"
                     {...field}
                   />
                 </FormControl>
@@ -122,14 +115,6 @@ export function LoginForm() {
           {serverError && (
             <Alert variant="destructive">
               <AlertDescription>{serverError}</AlertDescription>
-              {serverError === UNVERIFIED_ERROR && (
-                <Link
-                  href={`/verify-email?email=${encodeURIComponent(form.getValues("email"))}`}
-                  className="block mt-2 text-xs underline underline-offset-4 text-destructive-foreground hover:opacity-80"
-                >
-                  Resend verification email
-                </Link>
-              )}
             </Alert>
           )}
 
@@ -138,18 +123,17 @@ export function LoginForm() {
             className="w-full mt-2"
             disabled={form.formState.isSubmitting}
           >
-            {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
+            {form.formState.isSubmitting ? "Updating…" : "Update password"}
           </Button>
         </form>
       </Form>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{" "}
         <Link
-          href="/signup"
+          href="/login"
           className="text-primary hover:text-primary/80 underline-offset-4 hover:underline"
         >
-          Create one
+          Back to sign in
         </Link>
       </p>
     </AuthCard>

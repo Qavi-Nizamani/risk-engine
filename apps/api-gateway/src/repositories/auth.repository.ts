@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { getDb, users, emailVerificationTokens } from "@risk-engine/db";
-import type { User, EmailVerificationToken } from "@risk-engine/db";
+import { getDb, users, emailVerificationTokens, passwordResetTokens } from "@risk-engine/db";
+import type { User, EmailVerificationToken, PasswordResetToken } from "@risk-engine/db";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -77,5 +77,37 @@ export class AuthRepository {
 
   async deleteVerificationToken(id: string): Promise<void> {
     await this.db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.id, id));
+  }
+
+  async updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+    await this.db
+      .update(users)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async createPasswordResetToken(
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.db
+      .delete(passwordResetTokens)
+      .where(eq(passwordResetTokens.userId, userId));
+
+    await this.db.insert(passwordResetTokens).values({ userId, tokenHash, expiresAt });
+  }
+
+  async findPasswordResetToken(tokenHash: string): Promise<PasswordResetToken | null> {
+    const [row] = await this.db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.tokenHash, tokenHash))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async deletePasswordResetToken(id: string): Promise<void> {
+    await this.db.delete(passwordResetTokens).where(eq(passwordResetTokens.id, id));
   }
 }

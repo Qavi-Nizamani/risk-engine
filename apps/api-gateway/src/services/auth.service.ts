@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import type { User, Organization } from "@risk-engine/db";
 import { ConflictError, UnauthorizedError, BadRequestError, ForbiddenError } from "@risk-engine/http";
-import { sendEmail, buildVerifyEmail } from "@risk-engine/email";
+import { sendEmail, buildVerifyEmail, buildResetPasswordEmail } from "@risk-engine/email";
 import type { AuthRepository } from "../repositories/auth.repository";
 import type { OrganizationRepository } from "../repositories/organization.repository";
 
@@ -26,6 +26,7 @@ export interface LoginInput {
 
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 const RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
 
 export class AuthService {
@@ -147,6 +148,52 @@ export class AuthService {
     await sendEmail({ to: user.email, subject, html });
 
     return { message: "Verification email resent" };
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.userRepo.findUserByEmail(email);
+
+    // Always return the same message to prevent email enumeration
+    const message = "If an account exists for that email, a reset link has been sent";
+
+    if (!user || !user.emailVerified) {
+      return { message };
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
+    await this.userRepo.createPasswordResetToken(user.id, tokenHash, expiresAt);
+
+    const resetUrl = `${this.dashboardUrl}/reset-password?token=${rawToken}`;
+    const { subject, html } = buildResetPasswordEmail({ recipientName: user.name, resetUrl });
+    await sendEmail({ to: user.email, subject, html });
+
+    return { message };
+  }
+
+  async resetPassword(rawToken: string, newPassword: string): Promise<{ message: string }> {
+    if (newPassword.length < 8) {
+      throw new BadRequestError("Password must be at least 8 characters");
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const record = await this.userRepo.findPasswordResetToken(tokenHash);
+
+    if (!record) {
+      throw new BadRequestError("Invalid or expired reset link");
+    }
+
+    if (record.expiresAt < new Date()) {
+      await this.userRepo.deletePasswordResetToken(record.id);
+      throw new BadRequestError("Reset link has expired");
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.userRepo.updateUserPassword(record.userId, passwordHash);
+    await this.userRepo.deletePasswordResetToken(record.id);
+
+    return { message: "Password updated successfully" };
   }
 
   async login(input: LoginInput): Promise<{
