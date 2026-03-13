@@ -41,5 +41,14 @@ module.exports = {
         NODE_ENV: "production",
       },
     },
+    {
+      name: "developer",
+      cwd: "./apps/developer",
+      script: "node",
+      args: "node_modules/next/dist/bin/next start -p 3001",
+      env: {
+        NODE_ENV: "production",
+      },
+    },
   ],
 };
