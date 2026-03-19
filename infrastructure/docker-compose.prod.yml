@@ -1,0 +1,34 @@
+# Production stack — overlays on docker-compose.yml (adds app services)
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Required env vars (set in VPS .env file or CI/CD):
+#   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+#   WEB_IMAGE        — full image name  (e.g. ghcr.io/owner/risk-engine-web)
+#   WEB_IMAGE_TAG    — image tag        (e.g. sha-a1b2c3d or latest)
+
+services:
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/qavi-nizamani/risk-engine-web}:${WEB_IMAGE_TAG:-latest}
+    container_name: risk-web
+    restart: unless-stopped
+    # Bind to localhost only — nginx terminates TLS and reverse proxies
+    ports:
+      - "127.0.0.1:3000:3002"
+    environment:
+      NODE_ENV: production
+      # NEXT_PUBLIC_* are baked in at build time; set here only for reference/docs
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - risk-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

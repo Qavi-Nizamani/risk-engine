@@ -1,0 +1,47 @@
+# ─── Version control ─────────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+
+# ─── Node modules (installed fresh inside container) ─────────────────────────
+**/node_modules
+
+# ─── Build outputs ───────────────────────────────────────────────────────────
+**/.next
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+**/next-env.d.ts
+
+# ─── Environment / secrets (never bake into image) ───────────────────────────
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# ─── Test / coverage ─────────────────────────────────────────────────────────
+**/coverage
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+
+# ─── Dev tooling ─────────────────────────────────────────────────────────────
+.vscode
+.idea
+*.swp
+*.swo
+.editorconfig
+.prettierrc*
+.eslintrc*
+eslint.config.*
+
+# ─── CI / docs (not needed in build context) ─────────────────────────────────
+.github
+*.md
+!apps/web/README.md
+
+# ─── OS artifacts ────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

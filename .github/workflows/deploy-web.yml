@@ -1,0 +1,128 @@
+name: Deploy — Web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/types/**"
+      - ".github/workflows/deploy-web.yml"
+  # Manual trigger: deploy a specific tag OR rollback to a previous one
+  workflow_dispatch:
+    inputs:
+      rollback_tag:
+        description: "Tag to roll back to (e.g. sha-abc1234). Leave empty for normal deploy."
+        required: false
+        default: ""
+
+# Prevent concurrent deploys — a rollback must never race with a deploy
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/risk-engine-web
+
+jobs:
+  # ─── Build & push ───────────────────────────────────────────────────────────
+  build:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    # Skip build when triggered as a manual rollback
+    if: ${{ !inputs.rollback_tag }}
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # NEXT_PUBLIC_* vars are baked into the bundle at build time.
+          # Store them in GitHub Actions Variables (not Secrets) since they
+          # are public-facing URLs.
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL }}
+          # Registry-based layer cache — fast rebuilds when only source changes
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+  # ─── Deploy to VPS ──────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: [build]
+    # Run after build (normal deploy) or directly (manual rollback)
+    if: always() && !failure() && !cancelled()
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [[ -n "${{ inputs.rollback_tag }}" ]]; then
+            echo "tag=${{ inputs.rollback_tag }}" >> "$GITHUB_OUTPUT"
+            echo "mode=rollback"                  >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ needs.build.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            echo "mode=deploy"                              >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Copy deploy scripts to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "infrastructure/scripts/deploy-web.sh,infrastructure/docker-compose.yml,infrastructure/docker-compose.prod.yml"
+          target: "~/risk-engine"
+          strip_components: 0
+
+      - name: Run deploy / rollback on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            cd ~/risk-engine
+            chmod +x infrastructure/scripts/deploy-web.sh
+            ./infrastructure/scripts/deploy-web.sh \
+              "${{ steps.tag.outputs.mode }}" \
+              "ghcr.io/${{ env.IMAGE_NAME }}" \
+              "${{ steps.tag.outputs.tag }}"
