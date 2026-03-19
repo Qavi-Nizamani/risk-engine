@@ -127,10 +127,14 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          envs: LOGIN_TOKEN
           script: |
+            echo "$LOGIN_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             cd ~/risk-engine
             chmod +x infrastructure/scripts/deploy-web.sh
             ./infrastructure/scripts/deploy-web.sh \
               "${{ steps.tag.outputs.mode }}" \
               "ghcr.io/${{ env.IMAGE_NAME }}" \
               "${{ steps.tag.outputs.tag }}"
+        env:
+          LOGIN_TOKEN: ${{ secrets.LOGIN_TOKEN }}
