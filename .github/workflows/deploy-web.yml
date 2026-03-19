@@ -46,15 +46,8 @@ jobs:
       - name: Lowercase IMAGE_NAME
         run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
 
-      - name: Lowercase ACTOR
-        run: echo "ACTOR=${GITHUB_ACTOR,,}" >> "$GITHUB_ENV"
-
-      - name: Debug — auth values
-        run: |
-          echo "REGISTRY:         ${{ env.REGISTRY }}"
-          echo "USERNAME:         ${{ env.ACTOR }}"
-          echo "IMAGE_NAME:       ${{ env.IMAGE_NAME }}"
-          echo "GITHUB_TOKEN set: ${{ secrets.GITHUB_TOKEN != '' }}"
+      # - name: Lowercase ACTOR
+      #   run: echo "ACTOR=${GITHUB_ACTOR,,}" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -64,7 +57,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ env.ACTOR }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.LOGIN_TOKEN }}
 
       - name: Extract metadata (tags, labels)
         id: meta
