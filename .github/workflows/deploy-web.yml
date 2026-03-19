@@ -7,6 +7,8 @@ on:
       - "apps/web/**"
       - "packages/types/**"
       - ".github/workflows/deploy-web.yml"
+      - "infrastructure/docker-compose.prod.yml"
+      - "infrastructure/scripts/deploy-web.sh"
   # Manual trigger: deploy a specific tag OR rollback to a previous one
   workflow_dispatch:
     inputs:
