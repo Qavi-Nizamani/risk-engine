@@ -46,9 +46,6 @@ jobs:
       - name: Lowercase IMAGE_NAME
         run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
 
-      # - name: Lowercase ACTOR
-      #   run: echo "ACTOR=${GITHUB_ACTOR,,}" >> "$GITHUB_ENV"
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -56,7 +53,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ env.ACTOR }}
+          username: ${{ github.actor }}
           password: ${{ secrets.LOGIN_TOKEN }}
 
       - name: Extract metadata (tags, labels)
@@ -97,9 +94,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Lowercase IMAGE_NAME
-        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
 
       - name: Resolve image tag
         id: tag
