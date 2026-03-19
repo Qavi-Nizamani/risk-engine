@@ -33,15 +33,6 @@ module.exports = {
       },
     },
     {
-      name: "web",
-      cwd: "./apps/web",
-      script: "node",
-      args: "node_modules/next/dist/bin/next start -p 3000",
-      env: {
-        NODE_ENV: "production",
-      },
-    },
-    {
       name: "developer",
       cwd: "./apps/developer",
       script: "node",
