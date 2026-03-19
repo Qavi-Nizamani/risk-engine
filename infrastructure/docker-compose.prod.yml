@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
     # Bind to localhost only — nginx terminates TLS and reverse proxies
     ports:
-      - "127.0.0.1:3000:3002"
+      - "127.0.0.1:3000:3000"
     environment:
       NODE_ENV: production
       # NEXT_PUBLIC_* are baked in at build time; set here only for reference/docs
