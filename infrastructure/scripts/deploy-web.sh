@@ -80,7 +80,7 @@ start_service() {
 prune_old_images() {
   log "Pruning old images (keeping 3 most recent sha- tags) ..."
   docker images "$IMAGE" --format '{{.Tag}}' \
-    | grep '^sha-' \
+    | { grep '^sha-' || true; } \
     | sort -r \
     | tail -n +4 \
     | while read -r old_tag; do
