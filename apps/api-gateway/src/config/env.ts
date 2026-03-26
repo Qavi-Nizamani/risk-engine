@@ -51,3 +51,15 @@ export function isSignupDisabled(): boolean {
 export function getDashboardUrl(): string {
   return process.env.DASHBOARD_URL ?? "http://localhost:3000";
 }
+
+export function getLemonSqueezyApiKey(): string {
+  return process.env.LEMONSQUEEZY_API_KEY ?? "";
+}
+
+export function getLemonSqueezyStoreId(): string {
+  return process.env.LEMONSQUEEZY_STORE_ID ?? "";
+}
+
+export function getLemonSqueezyWebhookSecret(): string {
+  return process.env.LEMONSQUEEZY_WEBHOOK_SECRET ?? "";
+}

@@ -3,18 +3,26 @@ import type { Project } from "@risk-engine/db";
 import { NotFoundError } from "@risk-engine/http";
 import type { ProjectRepository } from "../repositories/project.repository";
 import type { ApiKeyRepository } from "../repositories/apiKey.repository";
+import type { SubscriptionService } from "./subscription.service";
 import { generateRawKey } from "./apiKey.service";
 
 export class ProjectService {
   constructor(
     private readonly projectRepo: ProjectRepository,
     private readonly apiKeyRepo: ApiKeyRepository,
+    private readonly subscriptionService?: SubscriptionService,
   ) {}
 
   async create(
     organizationId: string,
     input: { name: string; environment?: "PRODUCTION" | "STAGING" | "DEV" },
   ): Promise<{ project: Project; secretKey: string; publishableKey: string }> {
+    // Enforce plan project limit before creating
+    if (this.subscriptionService) {
+      const existing = await this.projectRepo.findAllByOrg(organizationId);
+      await this.subscriptionService.enforceProjectLimit(organizationId, existing.length);
+    }
+
     const project = await this.projectRepo.create({ organizationId, ...input });
 
     const secretRaw = generateRawKey("secret");

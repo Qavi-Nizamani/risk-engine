@@ -6,6 +6,7 @@ import {
   jsonb,
   timestamp,
   boolean,
+  integer,
   index,
   primaryKey,
 } from "drizzle-orm/pg-core";
@@ -16,7 +17,7 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 256 }).notNull(),
   plan: varchar("plan", { length: 64 })
-    .$type<"FREE" | "PRO" | "ENTERPRISE">()
+    .$type<"FREE" | "BASIC" | "PRO" | "ENTERPRISE">()
     .notNull()
     .default("FREE"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -213,6 +214,60 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Plans ────────────────────────────────────────────────────────────────────
+// Static plan catalog. Seeded once; referenced by subscriptions.
+
+export const plans = pgTable("plans", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 64 }).notNull(),
+  slug: varchar("slug", { length: 32 }).notNull().unique(),
+  priceMonthyCents: integer("price_monthly_cents").notNull().default(0),
+  // null = unlimited
+  maxProjects: integer("max_projects"),
+  maxMembers: integer("max_members"),
+  // Lemon Squeezy variant ID — null for free plan (no payment needed)
+  lemonSqueezyVariantId: varchar("lemon_squeezy_variant_id", { length: 64 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Subscriptions ────────────────────────────────────────────────────────────
+
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .unique() // one active subscription per org
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    planId: uuid("plan_id")
+      .notNull()
+      .references(() => plans.id),
+    status: varchar("status", { length: 32 })
+      .$type<"active" | "cancelled" | "past_due" | "expired" | "on_trial" | "paused">()
+      .notNull()
+      .default("active"),
+    // Lemon Squeezy identifiers (null for free plan)
+    lemonSqueezyId: varchar("lemon_squeezy_id", { length: 64 }).unique(),
+    lemonSqueezyCustomerId: varchar("lemon_squeezy_customer_id", { length: 64 }),
+    lemonSqueezyOrderId: varchar("lemon_squeezy_order_id", { length: 64 }),
+    lemonSqueezyProductId: varchar("lemon_squeezy_product_id", { length: 64 }),
+    lemonSqueezyVariantId: varchar("lemon_squeezy_variant_id", { length: 64 }),
+    currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_subscriptions_org").on(table.organizationId),
+    index("idx_subscriptions_ls_id").on(table.lemonSqueezyId),
+  ],
+);
+
 // ─── Inferred types ───────────────────────────────────────────────────────────
 
 export type Organization = typeof organizations.$inferSelect;
@@ -237,3 +292,7 @@ export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect
 export type NewEmailVerificationToken = typeof emailVerificationTokens.$inferInsert;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type NewPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+export type Plan = typeof plans.$inferSelect;
+export type NewPlan = typeof plans.$inferInsert;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type NewSubscription = typeof subscriptions.$inferInsert;

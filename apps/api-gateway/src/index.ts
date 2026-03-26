@@ -4,7 +4,7 @@ import cookieParser from "cookie-parser";
 import { createLogger } from "@risk-engine/logger";
 import { getDb } from "@risk-engine/db";
 import { createRedisClient } from "@risk-engine/redis";
-import { errorHandler } from "@risk-engine/http";
+import { asyncHandler, errorHandler } from "@risk-engine/http";
 import {
   getApiGatewayPort,
   getDatabaseUrl,
@@ -14,6 +14,9 @@ import {
   getIngestionBaseUrl,
   isSignupDisabled,
   getDashboardUrl,
+  getLemonSqueezyApiKey,
+  getLemonSqueezyStoreId,
+  getLemonSqueezyWebhookSecret,
 } from "./config/env";
 import { createAuthMiddleware } from "./middleware/authenticate";
 
@@ -25,6 +28,7 @@ import { IncidentRepository } from "./repositories/incident.repository";
 import { EventRepository } from "./repositories/event.repository";
 import { ApiKeyRepository } from "./repositories/apiKey.repository";
 import { WebhookEndpointRepository } from "./repositories/webhookEndpoint.repository";
+import { SubscriptionRepository } from "./repositories/subscription.repository";
 
 // Services
 import { AuthService } from "./services/auth.service";
@@ -34,6 +38,7 @@ import { IncidentService } from "./services/incident.service";
 import { EventService } from "./services/event.service";
 import { ApiKeyService } from "./services/apiKey.service";
 import { WebhookEndpointService } from "./services/webhookEndpoint.service";
+import { SubscriptionService } from "./services/subscription.service";
 
 // Controllers
 import { AuthController } from "./controllers/auth.controller";
@@ -43,6 +48,7 @@ import { IncidentController } from "./controllers/incident.controller";
 import { EventController } from "./controllers/event.controller";
 import { ApiKeyController } from "./controllers/apiKey.controller";
 import { WebhookEndpointController } from "./controllers/webhookEndpoint.controller";
+import { SubscriptionController } from "./controllers/subscription.controller";
 
 // Routes
 import { createAuthRouter } from "./routes/auth.routes";
@@ -52,6 +58,7 @@ import { createIncidentsRouter } from "./routes/incident.routes";
 import { createEventsRouter } from "./routes/event.routes";
 import { createApiKeysRouter } from "./routes/apiKey.routes";
 import { createWebhookEndpointRouter } from "./routes/webhookEndpoint.routes";
+import { createSubscriptionRouter } from "./routes/subscription.routes";
 
 const logger = createLogger("api-gateway");
 
@@ -71,11 +78,20 @@ async function bootstrap(): Promise<void> {
   const eventRepo = new EventRepository(db);
   const apiKeyRepo = new ApiKeyRepository(db);
   const webhookEndpointRepo = new WebhookEndpointRepository(db);
+  const subscriptionRepo = new SubscriptionRepository(db);
 
   // ── Services ──────────────────────────────────────────────────────────────────
-  const authService = new AuthService(userRepo, orgRepo, jwtSecret, isSignupDisabled(), getDashboardUrl());
-  const orgService = new OrganizationService(orgRepo);
-  const projectService = new ProjectService(projectRepo, apiKeyRepo);
+  const dashboardUrl = getDashboardUrl();
+  const subService = new SubscriptionService(
+    subscriptionRepo,
+    getLemonSqueezyApiKey(),
+    getLemonSqueezyStoreId(),
+    getLemonSqueezyWebhookSecret(),
+    dashboardUrl,
+  );
+  const authService = new AuthService(userRepo, orgRepo, jwtSecret, isSignupDisabled(), dashboardUrl, subService);
+  const orgService = new OrganizationService(orgRepo, subService);
+  const projectService = new ProjectService(projectRepo, apiKeyRepo, subService);
   const incidentService = new IncidentService(incidentRepo, projectRepo, redis, streamName);
   const eventService = new EventService(eventRepo);
   const apiKeyService = new ApiKeyService(apiKeyRepo, projectRepo);
@@ -89,11 +105,21 @@ async function bootstrap(): Promise<void> {
   const eventCtrl = new EventController(eventService);
   const apiKeyCtrl = new ApiKeyController(apiKeyService);
   const webhookEndpointCtrl = new WebhookEndpointController(webhookEndpointService);
+  const subscriptionCtrl = new SubscriptionController(subService);
 
   // ── App ───────────────────────────────────────────────────────────────────────
   const app = express();
 
   app.use(cors({ origin: getAllowedOrigin(), credentials: true }));
+
+  // Webhook must receive raw body for HMAC signature verification.
+  // Must be registered BEFORE express.json() consumes the stream.
+  app.post(
+    "/webhooks/lemonsqueezy",
+    express.raw({ type: "application/json" }),
+    asyncHandler(subscriptionCtrl.handleWebhook),
+  );
+
   app.use(express.json());
   app.use(cookieParser());
 
@@ -109,6 +135,7 @@ async function bootstrap(): Promise<void> {
   app.use(createEventsRouter(eventCtrl, authenticate));
   app.use(createApiKeysRouter(apiKeyCtrl, authenticate));
   app.use(createWebhookEndpointRouter(webhookEndpointCtrl, authenticate));
+  app.use(createSubscriptionRouter(subscriptionCtrl, authenticate));
 
   app.use(errorHandler);
 
@@ -119,6 +146,6 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((error) => {
-  logger.error({ error }, "Failed to start API gateway");
+  logger.error({ err: error }, "Failed to start API gateway");
   process.exit(1);
 });

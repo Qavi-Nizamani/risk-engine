@@ -75,3 +75,23 @@ export interface WebhookEndpointRow {
 export interface WebhookEndpointCreateResult extends WebhookEndpointRow {
   secret: string;
 }
+
+// ─── Billing ──────────────────────────────────────────────────────────────────
+
+export interface PlanRow {
+  id: string;
+  name: string;
+  slug: string;
+  priceMonthyCents: number;
+  maxProjects: number | null;
+  maxMembers: number | null;
+}
+
+export interface SubscriptionRow {
+  id: string;
+  status: "active" | "cancelled" | "past_due" | "expired" | "on_trial" | "paused";
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  trialEndsAt: string | null;
+  plan: PlanRow;
+}

@@ -6,6 +6,7 @@ import { ConflictError, UnauthorizedError, BadRequestError, ForbiddenError } fro
 import { sendEmail, buildVerifyEmail, buildResetPasswordEmail } from "@risk-engine/email";
 import type { AuthRepository } from "../repositories/auth.repository";
 import type { OrganizationRepository } from "../repositories/organization.repository";
+import type { SubscriptionService } from "./subscription.service";
 
 export interface JwtPayload {
   userId: string;
@@ -36,6 +37,7 @@ export class AuthService {
     private readonly jwtSecret: string,
     private readonly signupDisabled: boolean = false,
     private readonly dashboardUrl: string = "http://localhost:3000",
+    private readonly subscriptionService?: SubscriptionService,
   ) {}
 
   get cookieMaxAge(): number {
@@ -71,6 +73,9 @@ export class AuthService {
 
     const org = await this.orgRepo.create({ name: input.orgName });
     await this.orgRepo.addMember({ organizationId: org.id, userId: user.id, role: "OWNER" });
+
+    // Assign free plan subscription
+    await this.subscriptionService?.assignFreePlan(org.id);
 
     const rawToken = crypto.randomBytes(32).toString("hex");
     const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");

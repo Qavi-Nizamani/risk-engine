@@ -9,6 +9,8 @@ import type {
   MemberRow,
   WebhookEndpointRow,
   WebhookEndpointCreateResult,
+  PlanRow,
+  SubscriptionRow,
 } from "@/types/session";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -181,5 +183,17 @@ export const api = {
       ),
     revoke: (id: string) =>
       request<void>(`/webhook-endpoints/${id}`, { method: "DELETE" }),
+  },
+
+  billing: {
+    plans: () => request<PlanRow[]>("/billing/plans"),
+    subscription: () => request<SubscriptionRow>("/billing/subscription"),
+    checkout: (planSlug: string) =>
+      request<{ url: string }>("/billing/checkout", {
+        method: "POST",
+        body: JSON.stringify({ planSlug }),
+      }),
+    portal: () =>
+      request<{ url: string }>("/billing/portal", { method: "POST" }),
   },
 } as const;
