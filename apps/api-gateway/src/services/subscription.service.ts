@@ -27,7 +27,7 @@ export class SubscriptionService {
     private readonly lsWebhookSecret: string,
     private readonly dashboardUrl: string,
   ) {
-    this.ls = new LemonSqueezyClient(lsApiKey, lsStoreId);
+    this.ls = new LemonSqueezyClient(lsApiKey);
   }
 
   // ── Plans ──────────────────────────────────────────────────────────────────

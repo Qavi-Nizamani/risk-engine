@@ -70,7 +70,7 @@ export interface LsWebhookPayload {
 export class LemonSqueezyClient {
   constructor(
     private readonly apiKey: string,
-    private readonly storeId: string,
+    // private readonly storeId: string,
   ) {}
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
