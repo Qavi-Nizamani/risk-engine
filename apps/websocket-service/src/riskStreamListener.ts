@@ -116,8 +116,19 @@ export async function startIncidentStreamListener(io: SocketIOServer): Promise<v
             }
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.error({ error }, "Error while reading from Redis stream");
+        // Stream was deleted at runtime — recreate it before the next iteration
+        if (typeof error?.message === "string" && error.message.includes("no such key")) {
+          try {
+            await redis.xgroup("CREATE", streamName, groupName, "$", "MKSTREAM");
+            logger.info("Recreated stream and consumer group after deletion");
+          } catch (recreateError: any) {
+            if (typeof recreateError?.message !== "string" || !recreateError.message.includes("BUSYGROUP")) {
+              logger.error({ error: recreateError }, "Failed to recreate consumer group");
+            }
+          }
+        }
       }
     }
   }
