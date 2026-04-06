@@ -78,7 +78,7 @@ start_service() {
   log "Starting web service with $img:$tg ..."
   WEB_IMAGE="$img" WEB_IMAGE_TAG="$tg" \
     docker compose --project-name "$COMPOSE_PROJECT" --env-file "$ENV_FILE" $COMPOSE_FILES \
-    up -d --no-deps --remove-orphans web
+    up -d --no-deps --force-recreate web
 }
 
 # ─── Remove old sha- tagged images (keep latest 3) ────────────────────────────
