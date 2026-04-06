@@ -27,6 +27,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="$INFRA_DIR/../.env"
 COMPOSE_FILES="-f $INFRA_DIR/docker-compose.yml -f $INFRA_DIR/docker-compose.prod.yml"
+# Pin the project name so it is always the same regardless of the CWD the
+# caller uses. Without this, running from ~/risk-engine vs
+# ~/risk-engine/infrastructure produces different project names and Docker
+# Compose loses track of the postgres/redis containers it did not start.
+COMPOSE_PROJECT="risk-engine"
 CONTAINER="risk-web"
 PREV_IMAGE_FILE="/tmp/risk-web-prev-image"
 
@@ -72,7 +77,7 @@ start_service() {
   local img="$1" tg="$2"
   log "Starting web service with $img:$tg ..."
   WEB_IMAGE="$img" WEB_IMAGE_TAG="$tg" \
-    docker compose --env-file "$ENV_FILE" $COMPOSE_FILES \
+    docker compose --project-name "$COMPOSE_PROJECT" --env-file "$ENV_FILE" $COMPOSE_FILES \
     up -d --no-deps --remove-orphans web
 }
 
